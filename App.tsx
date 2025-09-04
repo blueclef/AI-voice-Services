@@ -1,15 +1,25 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import TextEditor from './components/TextEditor';
 import SettingsPanel from './components/SettingsPanel';
 import AudioControls from './components/AudioControls';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 
+// TypeScript declarations for global libraries from CDN
+declare const marked: {
+  parse: (markdown: string) => string;
+};
+declare const DOMPurify: {
+  sanitize: (html: string) => string;
+};
+
 const App: React.FC = () => {
   const [text, setText] = useState<string>(
-    'Hello, welcome to AI Voice Studio. Type or paste your text here and I will read it for you in a natural voice.'
+    '# AI 보이스 스튜디오\n\n안녕하세요, **AI 보이스 스튜디오**에 오신 것을 환영합니다. 여기에 텍스트를 입력하거나 붙여넣으면 *자연스러운* 목소리로 읽어드립니다.'
   );
+  const [plainText, setPlainText] = useState<string>('');
+
   const {
     voices,
     speak,
@@ -27,21 +37,48 @@ const App: React.FC = () => {
   const [pitch, setPitch] = useState(1);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
+  // Convert markdown to plain text for speech synthesis
+  useEffect(() => {
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined' && text) {
+      const dirtyHtml = marked.parse(text);
+      const sanitizedHtml = DOMPurify.sanitize(dirtyHtml);
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = sanitizedHtml;
+      setPlainText(tempDiv.textContent || tempDiv.innerText || '');
+    } else {
+      setPlainText(text); // Fallback for when libraries aren't loaded or text is empty
+    }
+  }, [text]);
+
+  // Set default voice once voices are loaded
+  useEffect(() => {
+    if (voices.length > 0 && !selectedVoiceURI) {
+        const defaultVoice = 
+            voices.find(v => v.lang === 'ko-KR' && v.name.includes('Google')) ||
+            voices.find(v => v.lang === 'ko-KR') ||
+            voices.find(v => v.default);
+        
+        if (defaultVoice) {
+            setSelectedVoiceURI(defaultVoice.voiceURI);
+        }
+    }
+  }, [voices, selectedVoiceURI]);
+
   const handleGenerate = useCallback(() => {
-    if (isLoading || !text) return;
+    if (isLoading || !plainText) return;
     const selectedVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
-    speak({ text, voice: selectedVoice, rate, pitch });
+    speak({ text: plainText, voice: selectedVoice, rate, pitch });
 
     // Simulate MP3 generation for download
     setAudioUrl(null); // Reset previous URL
     setTimeout(() => {
       // In a real app, this would come from a server API call.
       // We simulate it here for demonstration.
-      const blob = new Blob([text], { type: 'audio/mp3' });
+      const blob = new Blob([plainText], { type: 'audio/mp3' });
       setAudioUrl(URL.createObjectURL(blob));
     }, 1500); // Simulate network and processing delay
 
-  }, [isLoading, text, voices, selectedVoiceURI, rate, pitch, speak]);
+  }, [isLoading, plainText, voices, selectedVoiceURI, rate, pitch, speak]);
 
   if (!supported) {
     return (
