@@ -1,0 +1,5 @@
+{
+  "name": "AI Voice Studio",
+  "description": "A user-friendly Text-to-Speech (TTS) application that allows content creators to effortlessly convert text into high-quality, natural-sounding audio and download it as an MP3 file.",
+  "requestFramePermissions": []
+}
